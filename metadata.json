@@ -1,0 +1,6 @@
+{
+  "name": "UNIQUE SMART POINT",
+  "description": "All-in-one digital service platform, AI photo editing studio, PDF tools, image utilities, document services, and booking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

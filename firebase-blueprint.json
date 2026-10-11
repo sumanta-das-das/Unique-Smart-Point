@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of the user" },
+        "displayName": { "type": "string", "description": "Display name of the user" },
+        "email": { "type": "string", "description": "User email address" },
+        "role": { "type": "string", "enum": ["customer", "admin"], "description": "Role in the system" },
+        "credits": { "type": "integer", "description": "Available service credits" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Profile update timestamp" }
+      },
+      "required": ["userId", "displayName", "email", "role", "credits", "createdAt", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer service booking order",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "description": "Unique order identifier" },
+        "userId": { "type": "string", "description": "Customer auth UID" },
+        "customerName": { "type": "string", "description": "Customer contact name" },
+        "customerEmail": { "type": "string", "description": "Customer contact email" },
+        "serviceName": { "type": "string", "description": "Requested service name" },
+        "serviceCategory": { "type": "string", "description": "Service category" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "cancelled"], "description": "Current order fulfillment status" },
+        "notes": { "type": "string", "description": "Customer instructions and details" },
+        "fileAttachmentName": { "type": "string", "description": "Uploaded asset filename reference" },
+        "price": { "type": "integer", "description": "Service price in INR" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Order creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Order update timestamp" }
+      },
+      "required": ["orderId", "userId", "customerName", "customerEmail", "serviceName", "serviceCategory", "status", "price", "createdAt", "updatedAt"]
+    },
+    "ProcessingHistory": {
+      "title": "ProcessingHistory",
+      "description": "Record of completed tool usage jobs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique history entry ID" },
+        "userId": { "type": "string", "description": "Auth UID of the user" },
+        "toolName": { "type": "string", "description": "Name of the tool executed" },
+        "category": { "type": "string", "description": "Tool category" },
+        "status": { "type": "string", "description": "Execution status (Success/Failed)" },
+        "summary": { "type": "string", "description": "Summary result" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Execution timestamp" }
+      },
+      "required": ["id", "userId", "toolName", "category", "status", "summary", "createdAt"]
+    },
+    "SavedDesign": {
+      "title": "SavedDesign",
+      "description": "User created design, passport photo sheet, or frame export",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique design ID" },
+        "userId": { "type": "string", "description": "Auth UID of the owner" },
+        "title": { "type": "string", "description": "Title of the project" },
+        "toolType": { "type": "string", "description": "Type of tool (photo_frame, passport, poster, etc.)" },
+        "previewData": { "type": "string", "description": "Base64 or description data of the project" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last modified timestamp" }
+      },
+      "required": ["id", "userId", "title", "toolType", "createdAt", "updatedAt"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Customer inquiry or support request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ticket ID" },
+        "userId": { "type": "string", "description": "Auth UID of the user" },
+        "name": { "type": "string", "description": "Sender name" },
+        "email": { "type": "string", "description": "Sender email" },
+        "subject": { "type": "string", "description": "Inquiry subject" },
+        "message": { "type": "string", "description": "Inquiry message text" },
+        "status": { "type": "string", "enum": ["open", "resolved"], "description": "Status of support ticket" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Submission timestamp" }
+      },
+      "required": ["id", "userId", "name", "email", "subject", "message", "status", "createdAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "List of authorized administrator user IDs",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of admin" },
+        "email": { "type": "string", "description": "Email of admin" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Grant timestamp" }
+      },
+      "required": ["userId", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles indexed by UID"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders and booking requests"
+    },
+    "/processing_history/{historyId}": {
+      "schema": { "$ref": "#/entities/ProcessingHistory" },
+      "description": "Tool execution records"
+    },
+    "/saved_designs/{designId}": {
+      "schema": { "$ref": "#/entities/SavedDesign" },
+      "description": "User saved frames and designs"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "Support tickets and inquiries"
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "System administrators"
+    }
+  }
+}

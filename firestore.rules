@@ -1,0 +1,176 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'sumantadas425@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isValidUser(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.role in ['customer', 'admin'] &&
+             data.credits is int && data.credits >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidOrder(data) {
+      return data.orderId is string && data.orderId.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.customerName is string && data.customerName.size() <= 100 &&
+             data.customerEmail is string && data.customerEmail.size() <= 150 &&
+             data.serviceName is string && data.serviceName.size() <= 150 &&
+             data.serviceCategory is string && data.serviceCategory.size() <= 100 &&
+             data.status in ['pending', 'in_progress', 'completed', 'cancelled'] &&
+             data.price is int && data.price >= 0 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('fileAttachmentName' in data) || (data.fileAttachmentName is string && data.fileAttachmentName.size() <= 200)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidHistory(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.toolName is string && data.toolName.size() <= 100 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.status is string && data.status.size() <= 50 &&
+             data.summary is string && data.summary.size() <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidDesign(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() <= 100 &&
+             data.toolType is string && data.toolType.size() <= 50 &&
+             (!('previewData' in data) || (data.previewData is string && data.previewData.size() <= 100000)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidTicket(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.subject is string && data.subject.size() <= 200 &&
+             data.message is string && data.message.size() <= 2000 &&
+             data.status in ['open', 'resolved'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // Collections
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().role == 'customer' &&
+                       incoming().credits >= 0 && incoming().credits <= 50 &&
+                       isValidUser(incoming()) &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'email', 'role', 'credits', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'role', 'credits', 'createdAt', 'updatedAt']);
+      allow update: if isSignedIn() &&
+                       (request.auth.uid == userId || isAdmin()) &&
+                       isValidUser(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']));
+      allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       isValidOrder(incoming()) &&
+                       incoming().keys().hasAll(['orderId', 'userId', 'customerName', 'customerEmail', 'serviceName', 'serviceCategory', 'status', 'price', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['orderId', 'userId', 'customerName', 'customerEmail', 'serviceName', 'serviceCategory', 'status', 'notes', 'fileAttachmentName', 'price', 'createdAt', 'updatedAt']);
+      allow update: if isSignedIn() &&
+                       isValidOrder(incoming()) &&
+                       incoming().orderId == existing().orderId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (isAdmin() || (incoming().userId == request.auth.uid && existing().status == 'pending' && incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'updatedAt'])));
+      allow delete: if isAdmin();
+    }
+
+    match /processing_history/{historyId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       isValidHistory(incoming()) &&
+                       incoming().keys().hasAll(['id', 'userId', 'toolName', 'category', 'status', 'summary', 'createdAt']) &&
+                       incoming().keys().hasOnly(['id', 'userId', 'toolName', 'category', 'status', 'summary', 'createdAt']);
+      allow update: if false;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /saved_designs/{designId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       isValidDesign(incoming()) &&
+                       incoming().keys().hasAll(['id', 'userId', 'title', 'toolType', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['id', 'userId', 'title', 'toolType', 'previewData', 'createdAt', 'updatedAt']);
+      allow update: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       existing().userId == request.auth.uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidDesign(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'previewData', 'updatedAt']);
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /support_tickets/{ticketId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'open' &&
+                       isValidTicket(incoming()) &&
+                       incoming().keys().hasAll(['id', 'userId', 'name', 'email', 'subject', 'message', 'status', 'createdAt']) &&
+                       incoming().keys().hasOnly(['id', 'userId', 'name', 'email', 'subject', 'message', 'status', 'createdAt']);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+  }
+}
